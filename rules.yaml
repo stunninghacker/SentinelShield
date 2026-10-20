@@ -1,0 +1,127 @@
+# =============================================================================
+# SentinelShield — Detection Rules
+# -----------------------------------------------------------------------------
+# One YAML document per rule. Each attack class carries 2-3 realistic
+# signatures. The WAF decodes URL-encoding (once AND twice) before matching,
+# so payloads hide behind %xx encoding at their own risk.
+#
+# Fields
+#   id          : stable identifier, used in logs and the report
+#   category    : attack class label shown on the dashboard
+#   severity    : low | medium | high  (drives dashboard colour coding)
+#   regex       : Python re syntax, matched case-insensitively against the
+#                 decoded URL, query string, body and header values
+#   description : human explanation shown in README / report
+#   enabled     : true/false toggle
+# =============================================================================
+
+rules:
+  # ---------------------------------------------------------------- SQLi ----
+  - id: SQLI-001
+    category: "SQL Injection"
+    severity: high
+    enabled: true
+    regex: "(union\\s+(all\\s+)?select|select\\s+.+\\s+from\\s+)"
+    description: "UNION-based or SELECT...FROM SQL injection probe in input."
+
+  - id: SQLI-002
+    category: "SQL Injection"
+    severity: high
+    enabled: true
+    regex: "(['\"][\\s]*)?(or|and)[\\s]+[\\d\"']+\\s*=\\s*[\\d\"']+"
+    description: "Classic tautology such as ' OR 1=1 -- used to bypass authentication."
+
+  - id: SQLI-003
+    category: "SQL Injection"
+    severity: medium
+    enabled: true
+    regex: "(--|#|/\\*|;).{0,4}$|\\b(sleep|benchmark|load_file|extractvalue|updatexml)\\s*\\("
+    description: "SQL comment/terminator tail or time/boolean-based injection functions."
+
+  - id: SQLI-004
+    category: "SQL Injection"
+    severity: medium
+    enabled: true
+    regex: "\\b(drop|truncate|alter)\\s+(table|database)\\b|\\bdelete\\s+from\\b|\\binsert\\s+into\\b"
+    description: "Destructive DML/DDL statement keywords (DROP TABLE, DELETE FROM ...) in input."
+
+  # ----------------------------------------------------------------- XSS ----
+  - id: XSS-001
+    category: "Cross-Site Scripting (XSS)"
+    severity: high
+    enabled: true
+    regex: "<\\s*script\\b|</\\s*script\\s*>"
+    description: "Inline <script> tag injection."
+
+  - id: XSS-002
+    category: "Cross-Site Scripting (XSS)"
+    severity: high
+    enabled: true
+    regex: "\\bon(error|load|click|focus|mouseover)\\s*=|javascript\\s*:|data\\s*:\\s*text/html"
+    description: "Event-handler attribute or javascript:/data: URI payload."
+
+  - id: XSS-003
+    category: "Cross-Site Scripting (XSS)"
+    severity: medium
+    enabled: true
+    regex: "(alert|prompt|confirm)\\s*\\(|document\\s*\\.\\s*(cookie|location)|<\\s*svg\\b"
+    description: "JavaScript sink usage (alert/document) or <svg> payload vector."
+
+  # ------------------------------------------------- Command Injection ------
+  - id: CMDI-001
+    category: "Command Injection"
+    severity: high
+    enabled: true
+    regex: "[;&|]\\s*(cat|whoami|id|uname|nc|netcat|curl|wget|ping|dir|type)\\b|\\$\\(|`[^`]+`"
+    description: "Shell metacharacter followed by a recon binary, or $( ) / backtick substitution."
+
+  - id: CMDI-002
+    category: "Command Injection"
+    severity: high
+    enabled: true
+    regex: "\\b(cat|whoami)\\s+/etc/passwd|\\bnc\\s+(-[a-z]+\\s+)*\\d{1,3}(\\.\\d{1,3}){3}"
+    description: "Classic 'cat /etc/passwd' or reverse-shell netcat to an IP."
+
+  - id: CMDI-003
+    category: "Command Injection"
+    severity: medium
+    enabled: true
+    regex: "&&\\s*\\w+|\\|\\|\\s*\\w+|\\b(powershell|cmd\\.exe|bash|sh)\\s+-c\\b"
+    description: "Chained shell commands (&& / ||) or explicit interpreter invocation."
+
+  # -------------------------------------------------- LFI / Traversal -------
+  - id: LFI-001
+    category: "LFI / Directory Traversal"
+    severity: high
+    enabled: true
+    regex: "(\\.\\./|\\.\\.\\\\|%2e%2e[/\\\\]|%252e%252e)"
+    description: "Parent-directory traversal in plain or encoded form."
+
+  - id: LFI-002
+    category: "LFI / Directory Traversal"
+    severity: high
+    enabled: true
+    regex: "(/etc/passwd|/etc/shadow|c:\\\\windows\\\\win\\.ini|proc/self/environ)"
+    description: "Well-known sensitive OS file targeted for inclusion."
+
+  - id: LFI-003
+    category: "LFI / Directory Traversal"
+    severity: high
+    enabled: true
+    regex: "(php|file|zip|phar|expect)://|\\b(web|data|input)://"
+    description: "PHP/stream wrapper used for remote or local file inclusion."
+
+  # ------------------------------------------- Suspicious encoding ----------
+  - id: ENC-001
+    category: "Suspicious Encoding"
+    severity: low
+    enabled: true
+    regex: "((%[0-9a-f]{2}){6,})"
+    description: "Dense run of URL-encoded bytes — an attempt to smuggle a payload past naive filters."
+
+  - id: ENC-002
+    category: "Suspicious Encoding"
+    severity: medium
+    enabled: true
+    regex: "%25(2e|2f|3c|27|3b|70)"   # %252e, %252f, %253c ... (double-encoded)
+    description: "Double-encoded metacharacter (%25xx) indicating layered obfuscation."

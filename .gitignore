@@ -1,0 +1,11 @@
+# Runtime artifacts (regenerate with `make demo`)
+logs.db
+app.pid
+app_out.log
+app_err.log
+simulator_run.json
+demo_files/
+
+# Python
+__pycache__/
+*.pyc

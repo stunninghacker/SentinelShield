@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SentinelShield — Security Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121826; --panel2:#0f1522; --line:#1e2a3f;
+    --txt:#d7e1f2; --muted:#7f8ea8; --accent:#22d3ee;
+    --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --high:#f43f5e;
+    --med:#f59e0b; --low:#38bdf8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.45 "Segoe UI",system-ui,sans-serif}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+         padding:16px 24px;border-bottom:1px solid var(--line);
+         background:linear-gradient(180deg,#0e1420,#0b0f17)}
+  .logo{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;
+        background:linear-gradient(135deg,#0ea5e9,#22d3ee);color:#04121a;
+        font-weight:800;font-size:18px}
+  h1{font-size:18px;margin:0;letter-spacing:.4px}
+  .sub{color:var(--muted);font-size:12px}
+  .live{margin-left:auto;display:flex;align-items:center;gap:8px;
+        font-size:12px;color:var(--ok);text-transform:uppercase;letter-spacing:1px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);
+       box-shadow:0 0 0 0 rgba(34,197,94,.7);animation:pulse 1.6s infinite}
+  @keyframes pulse{70%{box-shadow:0 0 0 9px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+  main{padding:20px 24px;max-width:1400px;margin:0 auto}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+         gap:14px;margin-bottom:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:16px 18px;position:relative;overflow:hidden}
+  .card::after{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent)}
+  .card.bad::after{background:var(--bad)} .card.warn::after{background:var(--warn)}
+  .card.ok::after{background:var(--ok)}
+  .card .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1.2px}
+  .card .value{font-size:32px;font-weight:700;margin-top:6px;
+               font-family:Consolas,monospace}
+  .card .hint{color:var(--muted);font-size:11px;margin-top:4px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .panel{background:var(--panel);border:1px solid var(--line);
+         border-radius:12px;padding:16px 18px;min-width:0}
+  .panel h2{margin:0 0 12px;font-size:13px;color:var(--muted);
+            text-transform:uppercase;letter-spacing:1.1px;font-weight:600}
+  .panel.full{grid-column:1/-1}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--muted);text-align:left;font-weight:600;font-size:11px;
+     text-transform:uppercase;letter-spacing:.8px;padding:6px 8px;
+     border-bottom:1px solid var(--line)}
+  td{padding:7px 8px;border-bottom:1px solid rgba(30,42,63,.55);
+     font-family:Consolas,monospace;font-size:12.5px}
+  tr:last-child td{border-bottom:none}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;
+         font-size:10.5px;font-weight:700;letter-spacing:.6px}
+  .b-BLOCKED{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.45)}
+  .b-FLAGGED{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.45)}
+  .b-ALLOWED{background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.4)}
+  .sev-high{color:#f43f5e} .sev-medium{color:#f59e0b} .sev-low{color:#38bdf8}
+  .sev-info{color:var(--muted)}
+  #feed{max-height:430px;overflow-y:auto}
+  #feed::-webkit-scrollbar{width:8px}
+  #feed::-webkit-scrollbar-thumb{background:#22304a;border-radius:8px}
+  .feedrow{display:grid;grid-template-columns:70px 108px 62px 1fr 150px 92px;
+           gap:8px;padding:7px 6px;border-bottom:1px solid rgba(30,42,63,.5);
+           font-family:Consolas,monospace;font-size:12px;align-items:center}
+  .feedrow.head{color:var(--muted);font-size:10.5px;text-transform:uppercase;
+                letter-spacing:.8px;position:sticky;top:0;background:var(--panel2)}
+  .feedrow.new{animation:flash .9s ease}
+  @keyframes flash{from{background:rgba(34,211,238,.16)}to{background:transparent}}
+  .path{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;
+        text-align:left}
+  .cfg{color:var(--muted);font-size:11.5px;font-family:Consolas,monospace;
+       margin-top:10px}
+  .empty{color:var(--muted);font-size:12.5px;padding:8px 4px}
+  footer{color:var(--muted);font-size:11.5px;text-align:center;padding:18px}
+  @media(max-width:980px){.grid,.grid3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">&#9678;</div>
+  <div>
+    <h1>SENTINELSHIELD <span style="color:var(--accent)">// SECURITY CONSOLE</span></h1>
+    <div class="sub">Intrusion Detection &amp; Web Application Firewall &mdash; live view</div>
+  </div>
+  <div class="live"><span class="dot"></span> live &middot; refreshing 2s</div>
+</header>
+
+<main>
+  <!-- stat cards -->
+  <section class="cards">
+    <div class="card">
+      <div class="label">Total Requests</div>
+      <div class="value" id="c-total">0</div>
+      <div class="hint">through the WAF</div>
+    </div>
+    <div class="card bad">
+      <div class="label">Blocked Attacks</div>
+      <div class="value" id="c-blocked">0</div>
+      <div class="hint">signatures or cooldown</div>
+    </div>
+    <div class="card warn">
+      <div class="label">Flagged Events</div>
+      <div class="value" id="c-flagged">0</div>
+      <div class="hint">rate-limit breaches</div>
+    </div>
+    <div class="card ok">
+      <div class="label">Allowed / Benign</div>
+      <div class="value" id="c-allowed">0</div>
+      <div class="hint">forwarded to demo app</div>
+    </div>
+    <div class="card warn">
+      <div class="label">Flagged IPs</div>
+      <div class="value" id="c-ips">0</div>
+      <div class="hint">distinct abusive sources</div>
+    </div>
+  </section>
+
+  <!-- charts -->
+  <section class="grid" style="margin-bottom:14px">
+    <div class="panel">
+      <h2>Attacks by Category</h2>
+      <canvas id="catChart" height="230"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Attacks Over Time (10s buckets)</h2>
+      <canvas id="timeChart" height="230"></canvas>
+    </div>
+  </section>
+
+  <!-- tables + feed -->
+  <section class="grid3">
+    <div class="panel">
+      <h2>Most-Flagged IPs</h2>
+      <table>
+        <thead><tr><th>IP Address</th><th>Events</th><th>Blocked</th></tr></thead>
+        <tbody id="ipTable"><tr><td colspan="3" class="empty">No abusive IPs yet.</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Detection Rules Loaded</h2>
+      <table>
+        <thead><tr><th>Category</th><th>Detections</th></tr></thead>
+        <tbody id="ruleTable"><tr><td colspan="2" class="empty">Waiting for traffic…</td></tr></tbody>
+      </table>
+      <div class="cfg" id="cfgLine"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Live Event Feed <span style="color:var(--accent)">(last 20)</span></h2>
+      <div id="feed">
+        <div class="feedrow head">
+          <span>Time</span><span>IP</span><span>Verb</span><span>Path</span>
+          <span>Category</span><span>Verdict</span>
+        </div>
+        <div id="feedBody"><div class="empty">No events yet — run <b>python simulator.py</b>.</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>SentinelShield &middot; Flask + SQLite + Chart.js &middot; dashboard polls <code>/api/stats</code> every 2s</footer>
+
+<script>
+/* ------------------------------------------------------------------ *
+ * Chart setup (done once, data replaced on each poll)
+ * ------------------------------------------------------------------ */
+const COLORS = {
+  'SQL Injection':'#f43f5e',
+  'Cross-Site Scripting (XSS)':'#f59e0b',
+  'LFI / Directory Traversal':'#a78bfa',
+  'Command Injection':'#22d3ee',
+  'Suspicious Encoding':'#38bdf8',
+  'Rate Limit / Abuse':'#22c55e'
+};
+const catChart = new Chart(document.getElementById('catChart'), {
+  type:'bar',
+  data:{labels:[],datasets:[{label:'Detections',data:[],backgroundColor:[],
+    borderColor:'#0b0f17',borderWidth:1,borderRadius:6}]},
+  options:{
+    indexAxis:'y', maintainAspectRatio:false,
+    plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>` ${c.parsed.x} detection(s)`}}},
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#7f8ea8',precision:0}},
+      y:{grid:{display:false},ticks:{color:'#d7e1f2',font:{size:11}}}
+    }
+  }
+});
+
+const timeChart = new Chart(document.getElementById('timeChart'), {
+  type:'line',
+  data:{labels:[],datasets:[{
+    label:'Attacks',data:[],fill:true,tension:.35,pointRadius:2,borderWidth:2,
+    borderColor:'#22d3ee',
+    backgroundColor:(ctx)=>{
+      const g=ctx.chart.ctx.createLinearGradient(0,0,0,230);
+      g.addColorStop(0,'rgba(34,211,238,.35)');g.addColorStop(1,'rgba(34,211,238,0)');
+      return g;}
+  }]},
+  options:{
+    maintainAspectRatio:false,animation:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#7f8ea8',maxTicksLimit:8,font:{size:10}}},
+      y:{grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#7f8ea8',precision:0},beginAtZero:true}
+    }
+  }
+});
+
+/* ------------------------------------------------------------------ *
+ * Rendering helpers
+ * ------------------------------------------------------------------ */
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sevClass = s => 'sev-'+(s||'info').toLowerCase();
+
+function renderCounts(c, flaggedTotal){
+  document.getElementById('c-total').textContent   = c.total;
+  document.getElementById('c-blocked').textContent = c.blocked;
+  document.getElementById('c-flagged').textContent = c.flagged;
+  document.getElementById('c-allowed').textContent = c.allowed;
+  document.getElementById('c-ips').textContent     = flaggedTotal;
+}
+
+function renderCat(data){
+  catChart.data.labels = data.map(d=>d.category);
+  catChart.data.datasets[0].data = data.map(d=>d.count);
+  catChart.data.datasets[0].backgroundColor = data.map(d=>COLORS[d.category]||'#64748b');
+  catChart.update();
+
+  const tb = document.getElementById('ruleTable');
+  tb.innerHTML = data.length
+    ? data.map(d=>`<tr><td style="font-family:inherit">${esc(d.category)}</td>
+                   <td><b>${d.count}</b></td></tr>`).join('')
+    : '<tr><td colspan="2" class="empty">Waiting for traffic…</td></tr>';
+}
+
+function renderTime(t){
+  timeChart.data.labels = t.labels;
+  timeChart.data.datasets[0].data = t.values;
+  timeChart.update('none');
+}
+
+function renderIps(ips){
+  const tb = document.getElementById('ipTable');
+  tb.innerHTML = ips.length
+    ? ips.map(d=>`<tr><td>${esc(d.ip)}</td><td><b>${d.count}</b></td>
+                  <td style="color:#fca5a5">${d.blocked}</td></tr>`).join('')
+    : '<tr><td colspan="3" class="empty">No abusive IPs yet.</td></tr>';
+}
+
+let lastFirstId = null;
+function renderFeed(events){
+  const body = document.getElementById('feedBody');
+  if(!events.length) return;
+  const firstKey = events[0].time+events[0].path+events[0].verdict;
+  const isNew = lastFirstId !== null && firstKey !== lastFirstId;
+  lastFirstId = firstKey;
+  body.innerHTML = events.map((e,i)=>`
+    <div class="feedrow ${isNew&&i===0?'new':''}">
+      <span style="color:var(--muted)">${esc(e.time)}</span>
+      <span>${esc(e.ip)}</span>
+      <span style="color:#93c5fd">${esc(e.method)}</span>
+      <span class="path" title="${esc(e.path)}">${esc(e.path)}</span>
+      <span class="${sevClass(e.severity)}">${esc(e.category)}
+        <span style="color:var(--muted)">${esc(e.rule_id||'')}</span></span>
+      <span><span class="badge b-${esc(e.verdict)}">${esc(e.verdict)}</span></span>
+    </div>`).join('');
+}
+
+/* ------------------------------------------------------------------ *
+ * Poll loop
+ * ------------------------------------------------------------------ */
+async function poll(){
+  try{
+    const r = await fetch('/api/stats');
+    const s = await r.json();
+    renderCounts(s.counts, s.flagged_total);
+    renderCat(s.categories);
+    renderTime(s.timeline);
+    renderIps(s.flagged_ips);
+    renderFeed(s.recent);
+    document.getElementById('cfgLine').textContent =
+      `rules=${s.config.rules} · rate=${s.config.rate_max}/${s.config.rate_window}s · cooldown=${s.config.rate_cooldown}s`;
+  }catch(e){
+    console.error('poll failed',e);
+  }
+}
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>

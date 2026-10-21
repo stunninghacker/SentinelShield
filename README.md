@@ -176,7 +176,7 @@ Reads `logs.db` (+ `simulator_run.json` if present) and writes:
 ## 7. Project layout
 
 ```
-Sentinal_Shield/
+SentinelShield/
 ├── app.py              # WAF entry: proxy, dashboard, /api/stats
 ├── demo_app.py         # protected origin app (port 5001)
 ├── config.py           # all ports/thresholds in one file
@@ -191,6 +191,7 @@ Sentinal_Shield/
 │   └── chart.umd.min.js
 ├── simulator.py        # attack traffic generator
 ├── report.py           # report.md + report.pdf generator
+├── tests/              # pytest suite for core WAF logic
 ├── requirements.txt
 ├── Makefile
 └── README.md
@@ -212,7 +213,15 @@ Sentinal_Shield/
 
 ---
 
-## 9. Limitations (honest section for the write-up)
+## 9. Testing
+
+```bash
+pytest -q          # 25 tests: 3-pass decoder, signature matching, rate limiter
+```
+
+---
+
+## 10. Limitations (honest section for the write-up)
 
 - **Signature-based only.** No anomaly/ML scoring; novel or heavily
   obfuscated payloads can evade (the simulator's `edge_fn` seed demonstrates
